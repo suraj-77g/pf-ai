@@ -1,0 +1,1154 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>AI System Design Notes</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sticky lecture map on the left, one reading column of notes + "try it" demo cards on the right; map becomes a chip strip on phones */
+:root{
+  --bg:#F3F4EF; --surface:#FFFFFF; --sunk:#E9EBE4; --ink:#161A18; --muted:#59615B; --line:#D6DAD2;
+  --accent:#3343C2; --accent-soft:#E2E5FA; --hi:#E9A92A; --hi-soft:#FBEDCB;
+  --dev:#336AB3; --dev-soft:#E1EAF6; --dep:#BE6326; --dep-soft:#F7E4D5; --post:#2F7F4F; --post-soft:#DDEFE3;
+  --you:#B0473F; --you-soft:#F6E1DE; --good:#2F7F4F; --bad:#B0473F;
+  --f-display:"Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --f-body:"Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#101311; --surface:#181C19; --sunk:#1F2420; --ink:#E5E9E3; --muted:#99A29B; --line:#2D332F;
+  --accent:#9AA6FF; --accent-soft:#232A55; --hi:#F0C15C; --hi-soft:#3A2F1A;
+  --dev:#83AAE6; --dev-soft:#1C283A; --dep:#E89C62; --dep-soft:#3A281B; --post:#76C291; --post-soft:#1B3224;
+  --you:#E8918A; --you-soft:#3B2220; --good:#76C291; --bad:#E8918A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#101311; --surface:#181C19; --sunk:#1F2420; --ink:#E5E9E3; --muted:#99A29B; --line:#2D332F;
+  --accent:#9AA6FF; --accent-soft:#232A55; --hi:#F0C15C; --hi-soft:#3A2F1A;
+  --dev:#83AAE6; --dev-soft:#1C283A; --dep:#E89C62; --dep-soft:#3A281B; --post:#76C291; --post-soft:#1B3224;
+  --you:#E8918A; --you-soft:#3B2220; --good:#76C291; --bad:#E8918A; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--bg)}
+h1,h2,h3{font-family:var(--f-display);line-height:1.15;text-wrap:balance;margin:0;font-weight:700}
+h1{font-size:clamp(2.2rem,5vw,3.4rem);letter-spacing:-.02em}
+h2{font-size:clamp(1.55rem,3vw,2rem);letter-spacing:-.01em}
+h3{font-size:1.15rem;font-weight:500;letter-spacing:-.005em}
+p{margin:0}
+a{color:var(--accent)}
+.mono{font-family:var(--f-mono)}
+.eyebrow{font-family:var(--f-mono);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+.small{font-size:.875rem}
+mark{background:linear-gradient(transparent 55%,var(--hi-soft) 55%);color:inherit;padding:0 .1em}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.wrap{display:grid;grid-template-columns:210px minmax(0,1fr);gap:56px;max-width:1120px;margin:0 auto;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:40px 96px}
+main{min-width:0;max-width:780px;display:flex;flex-direction:column}
+
+/* lecture map */
+nav.toc{position:sticky;top:calc(env(safe-area-inset-top,0px) + 32px);align-self:start;display:flex;flex-direction:column;gap:14px}
+.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.toc a{display:flex;gap:10px;align-items:baseline;text-decoration:none;color:var(--muted);font-size:.9rem;padding:5px 8px;border-radius:6px;line-height:1.3}
+.toc a .n{font-family:var(--f-mono);font-size:.7rem;min-width:1.4em}
+.toc a:hover{color:var(--ink);background:var(--sunk)}
+.toc a[aria-current="true"]{color:var(--ink);background:var(--surface);box-shadow:inset 0 0 0 1px var(--line)}
+.toc a.done .n::before{content:"✓ ";color:var(--good)}
+.toc a.done .n{color:var(--good)}
+.progress{font-family:var(--f-mono);font-size:.75rem;color:var(--muted)}
+.progress-bar{height:4px;background:var(--sunk);border-radius:4px;overflow:hidden;margin-top:6px}
+.progress-bar i{display:block;height:100%;width:0;background:var(--good);transition:width .3s}
+
+@media (max-width:900px){
+  .wrap{grid-template-columns:minmax(0,1fr);gap:0;padding-block:0 80px}
+  nav.toc{top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--line);
+    margin-left:calc(-1 * max(16px,env(safe-area-inset-left,0px)));margin-right:calc(-1 * max(16px,env(safe-area-inset-right,0px)));
+    padding:10px max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));gap:6px}
+  .toc .toc-head{display:none}
+  .toc ol{flex-direction:row;overflow-x:auto;gap:6px;scrollbar-width:none}
+  .toc a{white-space:nowrap;border:1px solid var(--line);border-radius:999px;padding:5px 12px}
+  .progress-wrap{display:none}
+}
+
+/* hero */
+.hero{padding-block:24px 40px;display:flex;flex-direction:column;gap:18px}
+.hero .lede{font-size:1.15rem;color:var(--muted);max-width:60ch}
+.tldr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:8px}
+.tldr div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:6px}
+.tldr b{font-family:var(--f-display);font-weight:700;font-size:1.05rem}
+.tldr span{font-size:.92rem;color:var(--muted)}
+@media (max-width:640px){.tldr{grid-template-columns:minmax(0,1fr)}}
+
+/* sections */
+section.part{border-top:1px solid var(--line);padding-block:48px 8px;display:flex;flex-direction:column;gap:22px;scroll-margin-top:24px}
+@media (max-width:900px){section.part{scroll-margin-top:72px}}
+.part-head{display:flex;flex-direction:column;gap:8px}
+.part-head .q{color:var(--muted);font-size:1.02rem;max-width:62ch}
+.prose{display:flex;flex-direction:column;gap:12px;max-width:66ch}
+p.prose{display:block}
+.cccd{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)}
+.prose ul{margin:0;padding-left:1.15em;display:flex;flex-direction:column;gap:6px}
+.sub{display:flex;flex-direction:column;gap:12px;margin-top:10px}
+
+.lens{background:var(--hi-soft);border-radius:6px;padding:18px 20px;display:flex;flex-direction:column;gap:6px}
+.lens .eyebrow{color:var(--ink);opacity:.75}
+.lens p{font-family:var(--f-display);font-size:1.2rem;line-height:1.35;font-weight:500}
+
+.demo{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:16px}
+.demo-head{display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap}
+.tag{font-family:var(--f-mono);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:4px;background:var(--accent-soft);color:var(--accent)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{font-size:.88rem;font-weight:500;padding:7px 14px;border:1px solid var(--line);background:var(--surface);border-radius:999px;cursor:pointer;line-height:1.2}
+.btn:hover{border-color:var(--muted)}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+:root[data-theme="dark"] .btn.primary{color:#101311}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn.primary{color:#101311}}
+.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.note{font-size:.8rem;color:var(--muted)}
+
+/* two-column compare */
+.compare{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.compare > div{border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:8px;background:var(--surface);min-width:0}
+.compare .k{font-family:var(--f-mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.1em}
+@media (max-width:600px){.compare{grid-template-columns:minmax(0,1fr)}}
+
+/* tool vs problem */
+.tvp .tool{background:var(--you-soft);border-color:transparent}
+.tvp .prob{background:var(--post-soft);border-color:transparent}
+.tvp .tool .k{color:var(--you)} .tvp .prob .k{color:var(--post)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:.8rem;padding:3px 9px;border-radius:999px;background:var(--surface);border:1px solid var(--line)}
+.ladder{display:flex;flex-direction:column-reverse;gap:0;border-left:3px solid var(--post);border-right:3px solid var(--post);padding-inline:10px}
+.ladder span{border-top:2px solid var(--post);padding:4px 0 4px 4px;font-size:.88rem}
+.ladder span:first-child{border-bottom:2px solid var(--post)}
+.treadmill{display:flex;align-items:center;gap:8px;font-size:.88rem}
+.treadmill .belt{flex:1;height:10px;border-radius:6px;background:repeating-linear-gradient(90deg,var(--you) 0 10px,transparent 10px 20px);opacity:.55;animation:belt 1s linear infinite}
+@keyframes belt{to{background-position:-20px 0}}
+
+/* flow chips */
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.flow .node{padding:8px 12px;border-radius:8px;background:var(--sunk);font-size:.92rem}
+.flow .arrow{color:var(--muted);font-family:var(--f-mono)}
+
+/* design-build loop */
+.loop4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;position:relative}
+.loop4 div{border-top:3px solid var(--c);padding-top:10px;display:flex;flex-direction:column;gap:2px}
+.loop4 b{font-family:var(--f-display);color:var(--c);font-size:1.1rem}
+.loop4 span{font-size:.88rem;color:var(--muted)}
+.loopback{font-family:var(--f-mono);font-size:.75rem;color:var(--muted);border:1px dashed var(--line);border-top:none;border-radius:0 0 10px 10px;padding:6px 10px;text-align:center}
+.tradeoffs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.tradeoffs div{background:var(--sunk);border-radius:8px;padding:10px;text-align:center;font-weight:600;font-size:.92rem}
+@media (max-width:560px){.loop4,.tradeoffs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--f-mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:500}
+td b{font-weight:600}
+
+/* sampler */
+.sampler-in{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:1.05rem}
+.prompt{padding:8px 12px;border-radius:8px;background:var(--sunk);font-family:var(--f-mono);font-size:.92rem}
+.llm{padding:8px 14px;border-radius:8px;background:var(--accent-soft);color:var(--accent);font-weight:600}
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar{display:grid;grid-template-columns:92px minmax(0,1fr) 48px;gap:10px;align-items:center;font-size:.9rem}
+.bar .track{height:14px;background:var(--sunk);border-radius:4px;overflow:hidden}
+.bar .fill{height:100%;background:var(--accent);border-radius:4px;transition:width .25s}
+.bar .pct{font-family:var(--f-mono);font-size:.8rem;text-align:right;font-variant-numeric:tabular-nums}
+.bar.hit .fill{background:var(--hi)}
+.temp{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:.88rem}
+.temp input{flex:1;min-width:140px;accent-color:var(--accent)}
+.outs{display:flex;flex-direction:column;gap:4px;font-family:var(--f-mono);font-size:.85rem;min-height:2em}
+.outs div{padding:4px 8px;border-radius:4px;background:var(--sunk)}
+.outs b{color:var(--accent);font-weight:500}
+.tally{font-family:var(--f-mono);font-size:.8rem;color:var(--muted)}
+
+/* iterative cycle */
+.cycle{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;position:relative}
+.cycle div{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--surface);display:flex;flex-direction:column;gap:2px}
+.cycle .num{font-family:var(--f-mono);font-size:.75rem;color:var(--muted)}
+.cycle b{font-family:var(--f-display);font-size:1rem;letter-spacing:.02em}
+.cycle span{font-size:.86rem;color:var(--muted)}
+.cycle .calib{background:var(--hi-soft);border-color:transparent}
+.cycle-legend{font-size:.82rem;color:var(--muted)}
+.cycle-legend i{display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--hi-soft);vertical-align:-2px;margin-right:6px;border:1px solid var(--hi)}
+
+/* 80/20 pipeline */
+.pipe{display:grid;grid-template-columns:repeat(3,1fr) 1.05fr repeat(3,1fr);gap:8px;min-width:640px}
+.phase{font-family:var(--f-mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;text-align:center;padding:5px;border-radius:5px}
+.ph-dev{grid-column:1/4;background:var(--dev-soft);color:var(--dev)}
+.ph-dep{grid-column:4/5;background:var(--dep-soft);color:var(--dep)}
+.ph-post{grid-column:5/8;background:var(--post-soft);color:var(--post)}
+.st{border:1.5px solid var(--line);border-radius:10px;padding:10px 8px;font-size:.82rem;font-weight:600;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:92px;background:var(--surface);transition:background .25s,border-color .25s,transform .25s}
+.st .i{font-family:var(--f-mono);font-size:.7rem;font-weight:400;color:var(--muted)}
+.st.d{border-color:var(--dev)} .st.p{border-color:var(--dep)} .st.o{border-color:var(--post)}
+.pipe.mode-sw .st[data-sw],.pipe.mode-ai .st[data-ai]{background:var(--hi-soft);border-color:var(--hi);transform:translateY(-3px)}
+.loopline{grid-column:4/8;font-family:var(--f-mono);font-size:.72rem;color:var(--muted);border:1.5px dashed var(--post);border-top:none;border-radius:0 0 10px 10px;text-align:center;padding:4px;opacity:.85}
+.split{display:flex;height:30px;border-radius:6px;overflow:hidden;font-size:.78rem;font-weight:600}
+.split div{display:flex;align-items:center;justify-content:center;transition:flex-basis .4s;white-space:nowrap;overflow:hidden;padding-inline:6px}
+.split .a{background:var(--dev-soft);color:var(--dev)}
+.split .b{background:var(--post-soft);color:var(--post)}
+
+/* agency hotel */
+.request{padding:12px 14px;background:var(--sunk);border-radius:8px;font-style:italic}
+.hsteps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.hstep{border:1.5px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px;align-items:flex-start;background:var(--surface);cursor:pointer;text-align:left;font-size:.88rem}
+.hstep .who{font-family:var(--f-mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;padding:2px 7px;border-radius:4px}
+.hstep[data-o="you"]{border-color:var(--you)} .hstep[data-o="you"] .who{background:var(--you-soft);color:var(--you)}
+.hstep[data-o="ai"]{border-color:var(--accent)} .hstep[data-o="ai"] .who{background:var(--accent-soft);color:var(--accent)}
+@media (max-width:560px){.hsteps{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.meter{display:flex;flex-direction:column;gap:6px}
+.meter-track{height:12px;border-radius:6px;background:var(--you-soft);overflow:hidden}
+.meter-track i{display:block;height:100%;background:var(--accent);transition:width .3s}
+.meter-lbl{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:.75rem}
+.meter-lbl .l{color:var(--accent)} .meter-lbl .r{color:var(--you)}
+.bubbles{display:flex;gap:8px;flex-wrap:wrap;font-size:.9rem}
+.bubbles span{padding:6px 12px;border-radius:12px}
+.bubbles .ai{background:var(--accent-soft);color:var(--accent)}
+.bubbles .you{background:var(--you-soft);color:var(--you)}
+
+/* cc/cd */
+.cccd{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px;align-items:center}
+@media (max-width:680px){.cccd{grid-template-columns:minmax(0,1fr)}}
+svg text{font-family:var(--f-body)}
+.lobe{fill:none;stroke-width:16;stroke-linecap:round;opacity:.9}
+.lobe.cd{stroke:var(--dev-soft)} .lobe.cc{stroke:var(--post-soft)}
+.flowdash{fill:none;stroke-width:2.5;stroke-dasharray:6 10;animation:dash 1.6s linear infinite}
+.flowdash.cd{stroke:var(--dev)} .flowdash.cc{stroke:var(--post)}
+@keyframes dash{to{stroke-dashoffset:-32}}
+.node circle{stroke-width:2;cursor:pointer;transition:r .2s}
+.node.cd circle{fill:var(--surface);stroke:var(--dev)} .node.cc circle{fill:var(--surface);stroke:var(--post)}
+.node text{font-family:var(--f-mono);font-size:14px;font-weight:500;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.node.cd text{fill:var(--dev)} .node.cc text{fill:var(--post)}
+.node.on.cd circle{fill:var(--dev)} .node.on.cc circle{fill:var(--post)}
+.node.on text{fill:var(--surface)}
+.node{cursor:pointer;outline:none}
+.node:focus-visible circle{stroke:var(--accent);stroke-width:3}
+.deploy rect{fill:var(--dep)} .deploy text{fill:var(--surface);font-family:var(--f-mono);font-size:11px;font-weight:500;letter-spacing:.1em;text-anchor:middle;dominant-baseline:central}
+.lobe-lbl{font-family:var(--f-display);font-size:26px;font-weight:700;text-anchor:middle;dominant-baseline:central;opacity:.9}
+.lobe-lbl.cd{fill:var(--dev)} .lobe-lbl.cc{fill:var(--post)}
+.steplbl{font-size:11.5px;fill:var(--muted)}
+.axis-t{font-family:var(--f-mono);font-size:10.5px;fill:var(--muted);letter-spacing:.06em}
+.axis-l{stroke:var(--muted);stroke-width:1.2;fill:none}
+.axis-h{fill:var(--muted)}
+.cc-panel{display:flex;flex-direction:column;gap:8px;border-radius:10px;padding:16px;background:var(--sunk);min-height:180px}
+.cc-panel .side{font-family:var(--f-mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.1em}
+.cc-panel h3{font-size:1.15rem}
+
+/* versions chart */
+.vgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:center}
+@media (max-width:600px){.vgrid{grid-template-columns:minmax(0,1fr)}}
+.vc circle{fill:var(--surface);stroke:var(--line);stroke-width:2;transition:fill .25s,stroke .25s;cursor:pointer}
+.vc text{font-family:var(--f-display);font-weight:700;font-size:16px;fill:var(--muted);text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.vc.on circle{fill:var(--hi-soft);stroke:var(--hi)} .vc.on text{fill:var(--ink)}
+.vpath{stroke:var(--line);stroke-width:1.5;stroke-dasharray:4 5;fill:none}
+.vtext{display:flex;flex-direction:column;gap:6px}
+.vtext .pill{align-self:flex-start;font-family:var(--f-mono);font-size:.72rem;padding:3px 8px;border-radius:4px;background:var(--sunk)}
+
+/* ops issues */
+.issues{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.issue{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:14px;display:flex;flex-direction:column;gap:6px;text-align:left;cursor:pointer}
+.issue b{font-family:var(--f-display);font-size:1rem}
+.issue .what{font-size:.86rem;color:var(--muted)}
+.issue .ex{font-size:.84rem;border-top:1px dashed var(--line);padding-top:6px}
+.issue .ex::before{content:"Router example · ";font-family:var(--f-mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:var(--accent)}
+.issue[aria-expanded="false"] .ex{display:none}
+.issue .more{font-family:var(--f-mono);font-size:.7rem;color:var(--accent)}
+.issue[aria-expanded="true"] .more{display:none}
+
+/* agentic equation */
+.equation{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto auto;gap:12px;align-items:center}
+.equation .box{border:1.5px solid var(--post);border-radius:10px;padding:14px;text-align:center;font-family:var(--f-display);font-weight:700;background:var(--post-soft);color:var(--post)}
+.equation .op{font-family:var(--f-display);font-size:1.6rem;color:var(--muted)}
+.equation ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.equation li{padding:8px 10px;border-radius:8px;background:var(--sunk);font-size:.9rem}
+.equation li b{display:block;font-size:.92rem}
+.equation li span{color:var(--muted);font-size:.84rem}
+@media (max-width:600px){.equation{grid-template-columns:minmax(0,1fr)}.equation .op{text-align:center}}
+
+.formula{font-family:var(--f-display);font-size:clamp(1.05rem,2.6vw,1.3rem);font-weight:500;padding:14px 16px;background:var(--sunk);border-radius:8px;text-align:center}
+.formula .t1{color:var(--dev)} .formula .t2{color:var(--post)} .formula .t3{color:var(--accent)} .formula .t0{color:var(--dep)}
+
+/* router */
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.router{display:grid;grid-template-columns:minmax(0,1.2fr) auto minmax(0,1fr);gap:14px;align-items:center}
+@media (max-width:640px){.router{grid-template-columns:minmax(0,1fr)}.router .model{justify-self:center}}
+.inputs{display:flex;flex-direction:column;gap:8px}
+.inp{border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);display:flex;flex-direction:column;gap:4px;transition:opacity .25s,border-color .25s}
+.inp .lbl{display:flex;justify-content:space-between;align-items:center;gap:8px;font-family:var(--f-mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.inp .val{font-size:.9rem}
+.inp.ticket{border-color:var(--dev)}
+.inp.extra.on{border-color:var(--dep)}
+.inp.extra.off{opacity:.45;border-style:dashed}
+.inp.na{display:none}
+.switch{display:inline-flex;align-items:center;gap:6px;cursor:pointer;text-transform:none;letter-spacing:0;font-family:var(--f-body);font-size:.78rem;color:var(--ink)}
+.switch input{accent-color:var(--dep)}
+.model{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:.8rem;color:var(--muted)}
+.model .chipm{width:62px;height:62px;border-radius:12px;border:1.5px solid var(--post);background:var(--post-soft);display:grid;place-items:center}
+.queues{display:flex;flex-direction:column;gap:6px}
+.queue{border:1.5px solid var(--line);border-radius:8px;padding:8px 12px;font-size:.9rem;transition:all .25s;display:flex;justify-content:space-between;gap:8px}
+.queue.on{border-color:var(--post);background:var(--post-soft);color:var(--post);font-weight:600}
+.queue.on::after{content:"←";font-family:var(--f-mono)}
+.verdict{padding:12px 14px;border-radius:8px;background:var(--sunk);font-size:.92rem}
+.verdict b{font-weight:600}
+
+/* closed/open */
+.co{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.co > div{border:1px solid var(--line);border-radius:10px;padding:16px;background:var(--surface);display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center}
+.co .wbox{border-radius:8px;padding:10px 14px;font-size:.88rem;font-weight:600;width:100%}
+.co .closed .wbox{background:var(--dev-soft);color:var(--dev)}
+.co .open .wbox{background:var(--post-soft);color:var(--post)}
+.co .sm{font-family:var(--f-mono);font-size:.75rem;color:var(--muted)}
+.co .two{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}
+.co .two span,.co .app{border:1px solid var(--line);border-radius:8px;padding:8px;font-size:.85rem}
+.co .app{width:100%}
+@media (max-width:560px){.co{grid-template-columns:minmax(0,1fr)}}
+
+/* triangle */
+.tri{display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center}
+.tri .top{grid-column:1/3;justify-self:center;min-width:min(260px,100%);background:var(--post-soft);border:1.5px solid var(--post);border-radius:10px;padding:12px}
+.tri .bot{border-radius:10px;padding:12px;border:1.5px solid var(--line);background:var(--surface)}
+.tri b{font-family:var(--f-display);display:block}
+.tri span{font-size:.85rem;color:var(--muted)}
+.tri .mid{grid-column:1/3;font-family:var(--f-mono);font-size:.75rem;color:var(--muted)}
+
+/* effort */
+.effort-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center}
+.effort-row .in,.effort-row .out{padding:8px 12px;border-radius:8px;font-size:.85rem}
+.effort-row .in{background:var(--dev-soft);color:var(--dev)} .effort-row .out{background:var(--post-soft);color:var(--post)}
+.tokens{display:flex;gap:4px;flex-wrap:wrap}
+.tokens i{width:16px;height:26px;border-radius:3px;background:var(--dep);opacity:.75;animation:pop .25s ease-out both}
+@keyframes pop{from{transform:scaleY(.2);opacity:0}}
+.gauges{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.gauge{display:flex;flex-direction:column;gap:4px;font-size:.82rem}
+.gauge .t{height:8px;background:var(--sunk);border-radius:4px;overflow:hidden}
+.gauge .t i{display:block;height:100%;background:var(--dep);transition:width .3s}
+@media (max-width:520px){.gauges{grid-template-columns:minmax(0,1fr)}}
+
+/* lever quiz */
+.levers{display:flex;flex-direction:column;gap:8px}
+.lever{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
+.lever .fb{grid-column:1/3;font-size:.84rem}
+.lever .fb.ok{color:var(--good)} .lever .fb.no{color:var(--bad)}
+@media (max-width:560px){.lever{grid-template-columns:minmax(0,1fr)}.lever .fb{grid-column:1}}
+
+/* context engineering */
+.ce{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.ce div{border-top:3px solid var(--c);padding-top:10px;display:flex;flex-direction:column;gap:4px}
+.ce b{font-family:var(--f-display);color:var(--c);font-size:1.05rem}
+.ce .k{font-family:var(--f-mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.ce span{font-size:.88rem}
+@media (max-width:600px){.ce{grid-template-columns:minmax(0,1fr)}}
+
+.prompts{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:10px}
+.prompts .pbox{border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:6px;font-size:.9rem}
+.prompts .sys{background:var(--post-soft)} .prompts .usr{background:var(--dev-soft)}
+.prompts .pbox .k{font-family:var(--f-mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.08em}
+.prompts .sys .k{color:var(--post)} .prompts .usr .k{color:var(--dev)}
+.prompts .arrowdown{grid-column:1/3;text-align:center;font-family:var(--f-mono);color:var(--muted);font-size:.85rem}
+.prompts .result{grid-column:1/3;border:1.5px solid var(--post);border-radius:10px;padding:10px 14px;text-align:center;font-size:.92rem}
+@media (max-width:560px){.prompts{grid-template-columns:minmax(0,1fr)}.prompts .arrowdown,.prompts .result{grid-column:1}}
+
+.timeline{display:flex;flex-direction:column}
+.tl{display:grid;grid-template-columns:150px minmax(0,1fr);gap:14px;padding:14px 0;border-bottom:1px solid var(--line)}
+.tl:last-child{border-bottom:none}
+.tl .when{font-family:var(--f-mono);font-size:.78rem;color:var(--muted)}
+.tl b{font-family:var(--f-display);font-size:1rem;display:block;color:var(--c)}
+.tl .lv{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.tl .lv span{font-family:var(--f-mono);font-size:.72rem;padding:2px 8px;border-radius:4px;background:var(--sunk)}
+@media (max-width:520px){.tl{grid-template-columns:minmax(0,1fr);gap:4px}}
+
+.cot{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.cot > div{border:1px solid var(--line);border-radius:10px;padding:14px;font-family:var(--f-mono);font-size:.82rem;line-height:1.6;background:var(--surface);display:flex;flex-direction:column;gap:6px}
+.cot .k{font-family:var(--f-body);font-weight:600;font-size:.9rem}
+.cot .extra{color:var(--dep)}
+@media (max-width:560px){.cot{grid-template-columns:minmax(0,1fr)}}
+
+.three{counter-reset:t;list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.three li{counter-increment:t;display:grid;grid-template-columns:32px minmax(0,1fr);gap:10px;align-items:baseline}
+.three li::before{content:counter(t);font-family:var(--f-display);font-weight:700;font-size:1.3rem;color:var(--accent)}
+.inverse{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;font-family:var(--f-display);font-size:1.05rem;padding:12px;background:var(--sunk);border-radius:8px}
+.frac{display:inline-flex;flex-direction:column;align-items:center;line-height:1.2}
+.frac span:first-child{border-bottom:1.5px solid var(--ink);padding-inline:8px}
+
+/* glossary + quiz */
+.gloss{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px}
+.gloss div{padding:10px 0;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:2px;min-width:0}
+.gloss b{font-family:var(--f-display);font-size:.98rem}
+.gloss span{font-size:.88rem;color:var(--muted)}
+@media (max-width:600px){.gloss{grid-template-columns:minmax(0,1fr)}}
+.quiz{display:flex;flex-direction:column;gap:14px}
+.qq{display:flex;flex-direction:column;gap:8px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.qq:last-child{border-bottom:none}
+.qq p.qt{font-weight:600}
+.opts{display:flex;flex-direction:column;gap:6px}
+.opt{text-align:left;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);cursor:pointer;font-size:.9rem}
+.opt:hover{border-color:var(--muted)}
+.opt.right{border-color:var(--good);background:var(--post-soft)}
+.opt.wrong{border-color:var(--bad);background:var(--you-soft)}
+.qexp{font-size:.86rem;color:var(--muted)}
+.score{font-family:var(--f-mono);font-size:.85rem}
+
+details.logi{border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+details.logi summary{cursor:pointer;padding:14px 16px;font-weight:600;list-style:none;display:flex;justify-content:space-between}
+details.logi summary::after{content:"+";font-family:var(--f-mono);color:var(--muted)}
+details.logi[open] summary::after{content:"–"}
+details.logi .in{padding:0 16px 16px;display:flex;flex-direction:column;gap:14px;font-size:.92rem}
+
+.done-btn{align-self:flex-start;margin-top:6px}
+.done-btn[aria-pressed="true"]{background:var(--post-soft);color:var(--post);border-color:var(--post)}
+
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+<nav class="toc" aria-label="Lecture map">
+  <div class="toc-head eyebrow">Lecture map</div>
+  <ol id="toc">
+    <li><a href="#mindset"><span class="n">1</span>Problem-first mindset</a></li>
+    <li><a href="#nondeterminism"><span class="n">2</span>Non-determinism</a></li>
+    <li><a href="#agency"><span class="n">3</span>Agency vs control</a></li>
+    <li><a href="#ops"><span class="n">4</span>Operational issues</a></li>
+    <li><a href="#v1"><span class="n">5</span>Building V1: context</a></li>
+    <li><a href="#models"><span class="n">6</span>Choosing the model</a></li>
+    <li><a href="#prompting"><span class="n">7</span>Context eng. &amp; prompting</a></li>
+    <li><a href="#review"><span class="n">8</span>Review &amp; self-test</a></li>
+  </ol>
+  <div class="progress-wrap">
+    <div class="progress" id="progressTxt">0 of 8 reviewed</div>
+    <div class="progress-bar"><i id="progressBar"></i></div>
+  </div>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Problem-First AI · Lecture 1</div>
+  <h1>AI System Design</h1>
+  <p class="lede">Why AI products need a different design process, how to ship a first version that's safe to learn from, and how to choose the context, model and instructions behind it.</p>
+  <div class="tldr" aria-label="The lecture in three lines">
+    <div><span class="eyebrow">01 · Start</span><b>With a real problem</b><span>Pick a small, useful slice. Expand what works.</span></div>
+    <div><span class="eyebrow">02 · Understand</span><b>The pieces</b><span>A model uses context, instructions and tools to do the work.</span></div>
+    <div><span class="eyebrow">03 · Judge</span><b>The whole application</b><span>Benchmarks are a starting point. Product evals test <em>your</em> use case.</span></div>
+  </div>
+</header>
+
+<!-- ============ 1 MINDSET ============ -->
+<section class="part" id="mindset">
+  <div class="part-head">
+    <span class="eyebrow">Part 1 · Mindset</span>
+    <h2>Problem-first, not tool-first</h2>
+    <p class="q">Your problem is the hero, not AI.</p>
+  </div>
+
+  <div class="compare tvp">
+    <div class="tool">
+      <span class="k">Tool-first</span>
+      <h3>"How can we use this technology?"</h3>
+      <div class="chips"><span class="chip">MCP</span><span class="chip">Multi-agent systems</span><span class="chip">Agent harnesses</span></div>
+      <div class="treadmill" aria-hidden="true"><span class="small">Treadmill</span><div class="belt"></div></div>
+      <span class="small muted">Lots of motion chasing the newest tool, no progress toward a goal.</span>
+    </div>
+    <div class="prob">
+      <span class="k">Problem-first</span>
+      <h3>"What would solve this problem?"</h3>
+      <div class="ladder" aria-label="Ladder, bottom to top"><span>Success criteria</span><span>Workflow bottlenecks</span><span>Business outcomes ↑</span></div>
+      <span class="small muted">Each rung is grounded in the problem, and you climb toward an outcome.</span>
+    </div>
+  </div>
+
+  <div class="sub">
+    <h3>Jevons' paradox in AI</h3>
+    <div class="flow">
+      <span class="node">Building gets cheaper</span><span class="arrow">→</span>
+      <span class="node">Many more people build</span><span class="arrow">→</span>
+      <span class="node" style="background:var(--hi-soft)">Advantage = picking an impactful problem + the right tools</span>
+    </div>
+    <p class="small muted">Jevons' original observation: more efficient coal engines led to <em>more</em> coal use, not less. Cheaper building leads to more building, so building alone stops being a differentiator.</p>
+  </div>
+
+  <div class="sub">
+    <h3>The problem-first approach</h3>
+    <div>
+      <div class="loop4">
+        <div style="--c:var(--dep)"><b>Design</b><span>Decide what success means</span></div>
+        <div style="--c:var(--post)"><b>Build</b><span>Create a 1st version</span></div>
+        <div style="--c:var(--dev)"><b>Evaluate</b><span>Test against your goal</span></div>
+        <div style="--c:var(--accent)"><b>Repeat</b><span>Improve and test again</span></div>
+      </div>
+      <div class="loopback">↺ use what you learned, back to Design</div>
+    </div>
+    <p>Every choice trades off four things. Always ask: <mark>"If we choose this approach, what's the trade-off?"</mark></p>
+    <div class="tradeoffs"><div>$ Cost</div><div>◎ Performance</div><div>✎ Effort</div><div>◷ Latency</div></div>
+  </div>
+
+  <div class="sub">
+    <h3>Why learn frameworks if a coding agent can build it?</h3>
+    <p class="prose">Claude Code or Codex can write a customer-support agent and its infrastructure. <mark>You still have to understand, debug and maintain it.</mark> Agent design practice is young (databases and web dev have decades of it), so frameworks cut the boilerplate and let you spend time on the abstractions.</p>
+    <div class="scroll-x">
+      <table>
+        <thead><tr><th>The app needs</th><th>What it means</th><th>What the framework gives you</th></tr></thead>
+        <tbody>
+          <tr><td><b>Orchestration</b></td><td>Connect models and tools, pass data between them, control what runs next</td><td>Components, model/tool integrations, workflow routing</td></tr>
+          <tr><td><b>State</b></td><td>Save messages, draft replies and progress so the agent can continue later</td><td>LangGraph's saved state and pause/resume</td></tr>
+          <tr><td><b>Observability</b></td><td>Inspect prompts, responses, tool calls and errors across a run</td><td>Run inspection + tracing tools such as Arize</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small">Course frameworks: <b>LangGraph</b> (Python) or <b>LangFlow</b> (visual, low-code), chosen for building, tracing and evaluating. The skills that matter: choosing workflows vs single agents vs multi-agent systems, writing evals for real tasks and failure cases, and debugging RAG failures (retrieval, context or generation).</p>
+  </div>
+  <button class="btn done-btn" data-sec="mindset" aria-pressed="false">Mark as reviewed</button>
+</section>
+
+<!-- ============ 2 NON-DETERMINISM ============ -->
+<section class="part" id="nondeterminism">
+  <div class="part-head">
+    <span class="eyebrow">Part 2 · Why AI needs different system design · Problem 1 of 3</span>
+    <h2>Non-determinism</h2>
+    <p class="q">An LLM assigns a probability to every possible next token, samples one, appends it, and repeats. Sampling means <mark>the same prompt can produce different responses.</mark></p>
+  </div>
+
+  <div class="demo" id="sampler">
+    <div class="demo-head"><h3>Sample the next token</h3><span class="tag">Try it</span></div>
+    <div class="sampler-in"><span class="prompt">The dog is …</span><span class="muted">→</span><span class="llm">LLM</span><span class="muted">→ next-token probabilities</span></div>
+    <div class="bars" id="bars"></div>
+    <div class="temp">
+      <label for="tempIn">Temperature <span class="mono" id="tempVal">1.0</span></label>
+      <input type="range" id="tempIn" min="0" max="2" step="0.1" value="1">
+    </div>
+    <div class="row">
+      <button class="btn primary" id="s1">Sample once</button>
+      <button class="btn" id="s10">Sample 10×</button>
+      <button class="btn" id="sClr">Clear</button>
+    </div>
+    <div class="outs" id="outs" aria-live="polite"></div>
+    <div class="tally" id="tally"></div>
+    <p class="note">Probabilities from the lecture slide. Temperature isn't on the slides; it's the standard knob that sharpens (low) or flattens (high) this distribution. At 0 the model always picks the top token.</p>
+  </div>
+
+  <div class="sub">
+    <h3>Taming it: iterative system design</h3>
+    <p class="prose">Build, observe behaviour, improve, rebuild. Keep iterating until the experience is <em>reliably</em> good.</p>
+    <div class="cycle">
+      <div><span class="num">1</span><b>BUILD</b><span>New features or fixes in small increments</span></div>
+      <div><span class="num">2</span><b>DEPLOY</b><span>Release the update to a subset of users</span></div>
+      <div class="calib"><span class="num">4</span><b>IMPROVE</b><span>Find weaknesses and opportunities</span></div>
+      <div class="calib"><span class="num">3</span><b>OBSERVE</b><span>Gather eval results + customer signals</span></div>
+    </div>
+    <p class="cycle-legend"><i></i><b>Behavior calibration</b> (Observe + Improve) is where most of your time goes: did users behave differently than expected? Did the AI respond in a way that's calibrated to your product's expectations?</p>
+    <div class="compare">
+      <div><span class="k" style="color:var(--bad)">Example · coding agent · what you observe</span><span class="small">Wrong edits, missed context, inconsistent style, flaky test fixes</span></div>
+      <div><span class="k" style="color:var(--good)">What you change</span><span class="small">Patch the workflow, update prompts and tools, improve the evals</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><h3>The 80/20 flip</h3><span class="tag">Toggle</span></div>
+    <div class="row" role="group" aria-label="Compare">
+      <button class="btn" id="mSw" aria-pressed="true">Traditional software</button>
+      <button class="btn" id="mAi" aria-pressed="false">AI application</button>
+    </div>
+    <div class="scroll-x">
+      <div class="pipe mode-sw" id="pipe">
+        <div class="phase ph-dev">Development</div><div class="phase ph-dep">Deployment</div><div class="phase ph-post">Post-deployment</div>
+        <div class="st d"><span class="i">1</span>Scope capability &amp; curate data</div>
+        <div class="st d" data-sw><span class="i">2</span>Set up application</div>
+        <div class="st d" data-ai><span class="i">3</span>Design evals</div>
+        <div class="st p">Deploy</div>
+        <div class="st o" data-ai><span class="i">4</span>Run evals</div>
+        <div class="st o" data-ai><span class="i">5</span>Analyze behavior &amp; spot patterns</div>
+        <div class="st o" data-ai><span class="i">6</span>Apply fixes</div>
+        <div class="loopline">↺ back to Deploy, every iteration</div>
+      </div>
+    </div>
+    <div class="split" id="split"><div class="a" id="splitA">Build the first version</div><div class="b" id="splitB">Evaluate &amp; improve</div></div>
+    <p id="flipTxt" class="small"></p>
+  </div>
+  <div class="lens"><span class="eyebrow">Lens · the 80/20 flip</span><p>In AI applications, most of the work shifts from building the first version to evaluating, understanding and improving its behaviour.</p></div>
+  <button class="btn done-btn" data-sec="nondeterminism" aria-pressed="false">Mark as reviewed</button>
+</section>
+
+<!-- ============ 3 AGENCY ============ -->
+<section class="part" id="agency">
+  <div class="part-head">
+    <span class="eyebrow">Problem 2 of 3</span>
+    <h2>From user-driven to intent-driven</h2>
+    <p class="q"><b>Agency</b> is the authority to take actions toward a goal. Agency = decisions delegated to AI. <b>Control</b> = decisions retained by the person. Choose the balance for <em>each part</em> of the system.</p>
+  </div>
+
+  <div class="demo" id="hotel">
+    <div class="demo-head"><h3>Who owns each step?</h3><span class="tag">Click a step</span></div>
+    <div class="request">"Book a hotel in Paris next week, under $250, near the center."</div>
+    <div class="row" role="group" aria-label="Presets">
+      <button class="btn" data-preset="user">User-driven</button>
+      <button class="btn" data-preset="intent">Intent-driven</button>
+      <button class="btn" data-preset="full">Fully autonomous</button>
+    </div>
+    <div class="hsteps" id="hsteps"></div>
+    <div class="meter">
+      <div class="meter-track"><i id="agencyFill"></i></div>
+      <div class="meter-lbl"><span class="l" id="agencyL">Agency 0/4</span><span class="r" id="agencyR">Control 4/4</span></div>
+    </div>
+    <div class="bubbles" id="bubbles"></div>
+    <p class="small" id="hotelTxt"></p>
+  </div>
+
+  <div class="sub">
+    <h3>CC/CD: Continuous Calibration / Continuous Development</h3>
+    <p class="prose">The actionable way to handle the agency-control trade-off: <mark>improve reliability and calibrate which decisions AI can make</mark>, one version at a time. Click a step.</p>
+    <div class="demo">
+      <div class="cccd">
+        <div class="scroll-x">
+        <svg viewBox="0 0 640 330" role="img" aria-label="CC/CD infinity loop with six steps" style="width:100%;min-width:420px;height:auto">
+          <path class="lobe cd" d="M320,150 C380,60 520,60 520,150 C520,240 380,240 320,150"/>
+          <path class="lobe cc" d="M320,150 C260,60 120,60 120,150 C120,240 260,240 320,150"/>
+          <path class="flowdash cd" d="M320,150 C380,60 520,60 520,150 C520,240 380,240 320,150"/>
+          <path class="flowdash cc" d="M320,150 C260,60 120,60 120,150 C120,240 260,240 320,150"/>
+          <text class="lobe-lbl cd" x="436" y="150">CD</text>
+          <text class="lobe-lbl cc" x="204" y="150">CC</text>
+          <g class="deploy"><rect x="282" y="138" width="76" height="24" rx="5"/><text x="320" y="150">DEPLOY</text></g>
+          <g class="node cd" data-s="1" tabindex="0" role="button" aria-label="Step 1"><circle cx="442" cy="82" r="17"/><text x="442" y="82">1</text></g>
+          <g class="node cd" data-s="2" tabindex="0" role="button" aria-label="Step 2"><circle cx="520" cy="150" r="17"/><text x="520" y="150">2</text></g>
+          <g class="node cd" data-s="3" tabindex="0" role="button" aria-label="Step 3"><circle cx="442" cy="218" r="17"/><text x="442" y="218">3</text></g>
+          <g class="node cc" data-s="4" tabindex="0" role="button" aria-label="Step 4"><circle cx="198" cy="82" r="17"/><text x="198" y="82">4</text></g>
+          <g class="node cc" data-s="5" tabindex="0" role="button" aria-label="Step 5"><circle cx="120" cy="150" r="17"/><text x="120" y="150">5</text></g>
+          <g class="node cc" data-s="6" tabindex="0" role="button" aria-label="Step 6"><circle cx="198" cy="218" r="17"/><text x="198" y="218">6</text></g>
+          <text class="steplbl" x="442" y="50" text-anchor="middle">Scope &amp; curate data</text>
+          <text class="steplbl" x="548" y="150" text-anchor="start">Set up app</text>
+          <text class="steplbl" x="442" y="254" text-anchor="middle">Design evals</text>
+          <text class="steplbl" x="198" y="50" text-anchor="middle">Run evals</text>
+          <text class="steplbl" x="92" y="150" text-anchor="end">Analyze</text>
+          <text class="steplbl" x="198" y="254" text-anchor="middle">Apply fixes</text>
+          <path class="axis-l" d="M150,290 L490,290"/><path class="axis-h" d="M490,290 l-8,-4 v8 z"/>
+          <text class="axis-t" x="320" y="282" text-anchor="middle">EACH LOOP → HIGHER AGENCY</text>
+          <path class="axis-l" d="M150,318 L490,318"/><path class="axis-h" d="M150,318 l8,-4 v8 z"/>
+          <text class="axis-t" x="320" y="310" text-anchor="middle">← LOWER CONTROL</text>
+        </svg>
+        </div>
+        <div class="cc-panel" id="ccPanel" aria-live="polite"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sub">
+    <h3>Learn from each version</h3>
+    <div class="demo">
+      <div class="row" role="group" aria-label="Versions" id="vBtns">
+        <button class="btn" data-v="1" aria-pressed="true">V1</button>
+        <button class="btn" data-v="2" aria-pressed="false">V2</button>
+        <button class="btn" data-v="3" aria-pressed="false">V3</button>
+      </div>
+      <div class="vgrid">
+        <svg viewBox="0 0 320 250" role="img" aria-label="Agency versus control chart for three versions" style="width:100%;height:auto">
+          <path class="axis-l" d="M40,220 L40,22"/><path class="axis-h" d="M40,16 l-5,9 h10 z"/>
+          <path class="axis-l" d="M40,220 L298,220"/><path class="axis-h" d="M304,220 l-9,-5 v10 z"/>
+          <text class="axis-t" x="26" y="120" text-anchor="middle" transform="rotate(-90 26 120)">AGENCY</text>
+          <text class="axis-t" x="170" y="242" text-anchor="middle">CONTROL</text>
+          <path class="vpath" d="M240,180 L168,124 L96,68"/>
+          <g class="vc" data-v="3"><circle cx="96" cy="68" r="30"/><text x="96" y="68">V3</text></g>
+          <g class="vc" data-v="2"><circle cx="168" cy="124" r="30"/><text x="168" y="124">V2</text></g>
+          <g class="vc on" data-v="1"><circle cx="240" cy="180" r="30"/><text x="240" y="180">V1</text></g>
+        </svg>
+        <div class="vtext" id="vText" aria-live="polite"></div>
+      </div>
+    </div>
+  </div>
+
+  <details class="logi">
+    <summary>Exercise · student demo: AI medical assistant</summary>
+    <div class="in">
+      <p><b>What would you automate, assist with, or keep under the doctor's control?</b> One way to slice it (my example, not from the slides):</p>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Automate</th><th>Assist (AI drafts, doctor decides)</th><th>Keep under doctor's control</th></tr></thead>
+        <tbody><tr><td>Patient list, scheduling, visit transcription</td><td>Consult notes, summaries of history, suggested orders</td><td>Diagnosis, prescriptions, signing off orders</td></tr></tbody>
+      </table></div>
+      <p class="small muted">Same logic as CC/CD: start with high control, move items left only as evals show they're reliable.</p>
+    </div>
+  </details>
+  <button class="btn done-btn" data-sec="agency" aria-pressed="false">Mark as reviewed</button>
+</section>
+
+<!-- ============ 4 OPS ============ -->
+<section class="part" id="ops">
+  <div class="part-head">
+    <span class="eyebrow">Problem 3 of 3</span>
+    <h2>Operational issues</h2>
+    <p class="q">Seven failure modes you'll handle with evals and design patterns throughout the course. Tap one for an example from the support router used later in this lecture.</p>
+  </div>
+  <div class="issues" id="issues"></div>
+  <button class="btn done-btn" data-sec="ops" aria-pressed="false">Mark as reviewed</button>
+</section>
+
+<!-- ============ 5 V1 CONTEXT ============ -->
+<section class="part" id="v1">
+  <div class="part-head">
+    <span class="eyebrow">Part 3 · From strategy to execution</span>
+    <h2>Building V1: context design</h2>
+    <p class="q">How do we build the first version of a customer-support application?</p>
+  </div>
+
+  <div class="sub">
+    <h3>What we're building (recall from Lecture 0)</h3>
+    <div class="equation">
+      <div class="box">Generative AI</div>
+      <div class="op">+</div>
+      <ul>
+        <li><b>Tools / APIs</b><span>Run code; call a service</span></li>
+        <li><b>External memory</b><span>Retrieve information for the task</span></li>
+        <li><b>Planning</b><span>Choose and revise the next steps</span></li>
+      </ul>
+      <div class="op">=</div>
+      <div class="box">Agentic AI</div>
+    </div>
+  </div>
+
+  <div class="flow">
+    <span class="node"><b>1 · Context design</b><br><span class="small muted">What information and instructions does the app need?</span></span>
+    <span class="arrow">→</span>
+    <span class="node"><b>2 · Choose the right model</b><br><span class="small muted">What does this task need the model to do?</span></span>
+  </div>
+
+  <div class="sub">
+    <h3>V1 scope: route customer-support tickets</h3>
+    <p class="prose">Read a ticket and choose the right support queue. People still investigate and resolve the issue. <b>Question to ask: what information does this version need to route a ticket well?</b></p>
+    <div class="formula"><span class="t0">Data</span> = <span class="t1">Input context / behavior</span> + <span class="t2">Expected behavior</span></div>
+    <div class="compare">
+      <div><span class="k" style="color:var(--dev)">What the system sees</span><span>The ticket, relevant details and the customer's situation.</span></div>
+      <div><span class="k" style="color:var(--post)">What it should do</span><span>The correct queue and the facts that justify it.</span></div>
+    </div>
+    <p>Start with <mark><b>50–60 representative examples</b></mark>: clear cases, ambiguous cases and exceptions.</p>
+  </div>
+
+  <div class="demo" id="router">
+    <div class="demo-head"><h3>Route a ticket</h3><span class="tag">Toggle the context</span></div>
+    <div class="tabs" role="group" aria-label="Example tickets">
+      <button class="btn" data-case="invoice" aria-pressed="true">Invoice request</button>
+      <button class="btn" data-case="payment" aria-pressed="false">Payment issue</button>
+      <button class="btn" data-case="lockout" aria-pressed="false">Repeated lockouts</button>
+    </div>
+    <div class="router">
+      <div class="inputs">
+        <div class="inp ticket"><div class="lbl">Support ticket</div><div class="val" id="rTicket"></div></div>
+        <div class="inp extra" id="rMeta"><div class="lbl"><span>Metadata · transaction &amp; order</span><label class="switch"><input type="checkbox" id="rMetaOn" checked> include</label></div><div class="val" id="rMetaVal"></div></div>
+        <div class="inp extra" id="rHist"><div class="lbl"><span>Customer history</span><label class="switch"><input type="checkbox" id="rHistOn" checked> include</label></div><div class="val" id="rHistVal"></div></div>
+      </div>
+      <div class="model"><div class="chipm" aria-hidden="true"><svg width="34" height="26" viewBox="0 0 34 26"><g stroke="var(--post)" stroke-width="1.2" fill="none"><path d="M5 6 L17 4 L29 9 M5 6 L17 13 L29 9 M5 20 L17 13 L29 20 M5 20 L17 22 L29 20 M5 6 L17 22"/></g><g fill="var(--surface)" stroke="var(--post)" stroke-width="1.4"><circle cx="5" cy="6" r="2.6"/><circle cx="5" cy="20" r="2.6"/><circle cx="17" cy="4" r="2.6"/><circle cx="17" cy="13" r="2.6"/><circle cx="17" cy="22" r="2.6"/><circle cx="29" cy="9" r="2.6"/><circle cx="29" cy="20" r="2.6"/></g></svg></div>Routing model</div>
+      <div class="queues" id="rQueues">
+        <div class="queue" data-q="Invoices">Invoices</div>
+        <div class="queue" data-q="Payments">Payments</div>
+        <div class="queue" data-q="Login issues">Login issues</div>
+        <div class="queue" data-q="Security review">Security review</div>
+      </div>
+    </div>
+    <div class="verdict" id="rVerdict" aria-live="polite"></div>
+  </div>
+
+  <div class="sub">
+    <h3>Context design = architecture for AI</h3>
+    <div class="scroll-x"><table>
+      <thead><tr><th>What the examples revealed</th><th>Context needed</th><th>Application requirement</th></tr></thead>
+      <tbody>
+        <tr><td>A clear invoice request</td><td style="color:var(--dev)">Ticket content</td><td style="color:var(--post)">Read the support ticket</td></tr>
+        <tr><td>An unclear payment issue</td><td style="color:var(--dev)">Transaction + order status</td><td style="color:var(--post)">Connect to those records</td></tr>
+        <tr><td>Repeated login problems</td><td style="color:var(--dev)">Past tickets + routing rules</td><td style="color:var(--post)">Retrieve history and apply policy</td></tr>
+      </tbody>
+    </table></div>
+    <p>Add each source <em>because</em> your examples show why V1 needs it.</p>
+  </div>
+  <div class="lens"><span class="eyebrow">Lens</span><p>Your dataset should guide your application design.</p></div>
+  <button class="btn done-btn" data-sec="v1" aria-pressed="false">Mark as reviewed</button>
+</section>
+
+<!-- ============ 6 MODELS ============ -->
+<section class="part" id="models">
+  <div class="part-head">
+    <span class="eyebrow">Part 4 · Choosing the right model</span>
+    <h2>We have the context. Which model should use it?</h2>
+  </div>
+
+  <div class="co">
+    <div class="closed">
+      <h3>Closed model</h3>
+      <div class="wbox">Weights stay with provider (locked)</div>
+      <span class="sm">↑ API</span>
+      <div class="app">Your application</div>
+    </div>
+    <div class="open">
+      <h3>Open-weight model</h3>
+      <div class="wbox">↓ Downloadable weights</div>
+      <span class="sm">↙ ↘</span>
+      <div class="two"><span>Self-host</span><span>Hosted service</span></div>
+    </div>
+  </div>
+  <p><mark>Open weights do not mean you have to host the model yourself.</mark></p>
+
+  <div class="sub">
+    <h3>Start with a hosted model</h3>
+    <div class="compare" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
+      <div><span class="k" style="color:var(--dev)">Less infrastructure</span><span class="small">Provider runs the model, GPUs and serving.</span></div>
+      <div><span class="k" style="color:var(--post)">Faster experiments</span><span class="small">Try different models without deploying each one.</span></div>
+      <div><span class="k" style="color:var(--dep)">Focus on your V1</span><span class="small">Spend time on context, instructions and testing behaviour.</span></div>
+    </div>
+    <p class="small">A hosted model can be closed <em>or</em> open-weight. Check data requirements and provider terms before choosing.</p>
+  </div>
+
+  <div class="sub">
+    <h3>Where to compare models</h3>
+    <div class="compare">
+      <div><span class="k">Arena AI</span><span class="small">Compare responses and human preferences. Look at the categories relevant to your task.</span></div>
+      <div><span class="k">Artificial Analysis</span><span class="small">Compare benchmark results, speed and pricing. Check the model version and reasoning configuration.</span></div>
+    </div>
+    <p class="small">Use these to <b>shortlist</b> candidates, then test on your own examples.</p>
+  </div>
+
+  <div class="sub">
+    <h3>Optimize performance first</h3>
+    <div class="tri">
+      <div class="top"><b>1 · Performance</b><span>Meet your quality target</span></div>
+      <div class="mid">then, keeping quality above the target</div>
+      <div class="bot"><b>2 · Latency</b><span>Reduce time to answer</span></div>
+      <div class="bot"><b>2 · Cost</b><span>Reduce cost per task</span></div>
+    </div>
+    <p class="small">Then test a smaller model or less reasoning, and measure again.</p>
+  </div>
+
+  <div class="demo" id="effort">
+    <div class="demo-head"><h3>Reasoning effort</h3><span class="tag">Slide the lever</span></div>
+    <p class="small">Reasoning is now standard in leading general-purpose models: task + context → <b>internal reasoning</b> (work through steps, consider alternatives, check an approach) → response. You'll see it as a "thinking" or "reasoning effort" setting.</p>
+    <div class="row" role="group" aria-label="Effort level">
+      <button class="btn" data-e="low" aria-pressed="true">Low</button>
+      <button class="btn" data-e="medium" aria-pressed="false">Medium</button>
+      <button class="btn" data-e="high" aria-pressed="false">High</button>
+    </div>
+    <div class="effort-row"><span class="in">Same input</span><div class="tokens" id="tokens" aria-label="internal reasoning tokens"></div><span class="out">Response</span></div>
+    <div class="gauges">
+      <div class="gauge"><span>Help on hard tasks</span><div class="t"><i id="gQ"></i></div></div>
+      <div class="gauge"><span>Time to answer</span><div class="t"><i id="gL"></i></div></div>
+      <div class="gauge"><span>Cost per task</span><div class="t"><i id="gC"></i></div></div>
+    </div>
+    <p class="note">Illustrative. The same model spends more computation (reasoning tokens) working through the task: it can improve difficult answers but usually adds time and cost.</p>
+  </div>
+
+  <div class="lens"><span class="eyebrow">Lens · avoid model-selection hell</span><p>Start with a mid-tier model and low reasoning effort, then adjust based on failures in your own tests.</p></div>
+
+  <div class="sub">
+    <h3>Two levers: more reasoning, or a different model?</h3>
+    <div class="compare">
+      <div><span class="k" style="color:var(--dep)">Reasoning as a lever</span><b>Give the same person more time to work through it.</b><span class="small muted">More computation while answering; the learned model stays the same.</span><span class="small"><b>Use when</b> it understands the pieces but struggles to connect the steps: policy exceptions, multi-step math, planning with constraints.</span></div>
+      <div><span class="k" style="color:var(--post)">A different model as a lever</span><b>Give the problem to someone with different skills.</b><span class="small muted">Different learned capabilities; size and training both matter.</span><span class="small"><b>Use when</b> it needs different language, visual or domain capabilities: robotic writing, misread drawings, missed domain concepts.</span></div>
+    </div>
+    <p class="small">Keep the task, data and instructions fixed. Compare quality, latency and cost on the same examples.</p>
+  </div>
+
+  <div class="demo">
+    <div class="demo-head"><h3>Which lever would you pull?</h3><span class="tag">Quick drill</span></div>
+    <div class="levers" id="levers"></div>
+  </div>
+  <button class="btn done-btn" data-sec="models" aria-pressed="false">Mark as reviewed</button>
+</section>
+
+<!-- ============ 7 PROMPTING ============ -->
+<section class="part" id="prompting">
+  <div class="part-head">
+    <span class="eyebrow">Part 5 · From context design to context engineering</span>
+    <h2>Context engineering &amp; prompting</h2>
+    <p class="q">You have the data and a model. How do they work together? Context engineering is the <mark>iterative plumbing that connects the model to what it needs.</mark></p>
+  </div>
+  <div class="formula">Context engineering = <span class="t2">Instructions</span> + <span class="t3">Tools</span> + <span class="t1">External / past knowledge</span></div>
+  <div class="ce">
+    <div style="--c:var(--post)"><span class="k">What it should do</span><b>Instructions</b><span>Route the ticket. Follow the routing rules.</span></div>
+    <div style="--c:var(--accent)"><span class="k">What it can use</span><b>Tools</b><span>Approved tools to retrieve the information it needs.</span></div>
+    <div style="--c:var(--dev)"><span class="k">What it should know</span><b>Knowledge</b><span>Relevant policy, order details and customer history.</span></div>
+  </div>
+  <p class="small muted">Each gets engineered more deeply later in the course. This lecture zooms into instructions: <b>prompting is how we give instructions to AI systems.</b></p>
+
+  <div class="sub">
+    <h3>System prompt vs user prompt</h3>
+    <div class="prompts">
+      <div class="pbox sys"><span class="k">System prompt · builder-provided</span><span>Route tickets to Invoices, Payments, Login issues or Security review. Return the queue and a brief reason. Do not change accounts.</span></div>
+      <div class="pbox usr"><span class="k">User prompt · customer-provided</span><span>Please send me a copy of my invoice.</span></div>
+      <div class="arrowdown">↓ both go to the AI model ↓</div>
+      <div class="result"><b>Invoices</b> · The customer requests an invoice.</div>
+    </div>
+  </div>
+
+  <div class="sub">
+    <h3>How prompting has evolved</h3>
+    <div class="timeline">
+      <div class="tl" style="--c:var(--accent)"><span class="when">2022 onward</span><div><b>Skill-based prompting</b><span class="small">People write instructions and examples to guide the router.</span><div class="lv"><span>L1 · In-context learning</span><span>L2 · Advanced methods</span></div></div></div>
+      <div class="tl" style="--c:var(--dep)"><span class="when">2023 onward</span><div><b>Automated prompt optimization</b><span class="small">A model or algorithm proposes prompt changes; tests show which route better.</span><div class="lv"><span>L3 · Meta-prompting</span><span>L4 · Algorithmic optimization</span></div></div></div>
+      <div class="tl" style="--c:var(--post)"><span class="when">Late 2024 onward</span><div><b>Self-optimizing models</b><span class="small">Models trained to reason through the task need less explicit reasoning guidance.</span><div class="lv"><span>L0 · Reasoning models</span></div></div></div>
+    </div>
+    <p class="small muted">These overlap; all three remain useful. Meta-prompting was demoed live in Arize.</p>
+  </div>
+
+  <div class="sub">
+    <h3>Prompting a support router: then vs now</h3>
+    <div class="cot">
+      <div><span class="k">Earlier chain-of-thought prompt</span>Route this ticket using the rules.<br><span class="extra">Think step by step: identify the issue, compare the categories, then decide.</span><br>Return the queue and a brief justification.</div>
+      <div><span class="k">Prompting a reasoning model</span>Route this ticket using the rules.<br>Return the queue and a brief justification.</div>
+    </div>
+    <p class="small">Same output for both: <b>Invoices · The customer requests an invoice.</b> Reasoning models often need less instruction about <em>how</em> to reason.</p>
+  </div>
+
+  <div class="sub">
+    <h3>Prompting today: only three things to focus on</h3>
+    <ol class="three">
+      <li>Define the task, context and expected output.</li>
+      <li>Give examples if needed.</li>
+      <li>Follow your model's prompting guide (OpenAI, Anthropic).</li>
+    </ol>
+    <div class="inverse"><span>End-user prompting skill required</span><span style="color:var(--dep)">∝</span><span class="frac"><span>1</span><span>AI capabilities</span></span></div>
+  </div>
+  <button class="btn done-btn" data-sec="prompting" aria-pressed="false">Mark as reviewed</button>
+</section>
+
+<!-- ============ 8 REVIEW ============ -->
+<section class="part" id="review">
+  <div class="part-head">
+    <span class="eyebrow">Revision</span>
+    <h2>Key terms &amp; self-test</h2>
+  </div>
+  <div class="gloss">
+    <div><b>Problem-first</b><span>Start from the problem and success criteria, then pick tools.</span></div>
+    <div><b>Non-determinism</b><span>Sampling means the same prompt can give different outputs.</span></div>
+    <div><b>Behavior calibration</b><span>Observe + improve: align AI responses with product expectations.</span></div>
+    <div><b>80/20 flip</b><span>AI work shifts from building V1 to evaluating and improving it.</span></div>
+    <div><b>Agency / control</b><span>Decisions delegated to AI vs retained by the person.</span></div>
+    <div><b>CC/CD</b><span>Continuous Calibration / Continuous Development: 6-step loop around Deploy.</span></div>
+    <div><b>Data (for V1)</b><span>Input context/behavior + expected behavior. Start with 50–60 examples.</span></div>
+    <div><b>Context design</b><span>Architecture for AI: add each source because examples demand it.</span></div>
+    <div><b>Open-weight</b><span>Downloadable weights; self-host <em>or</em> use a hosted service.</span></div>
+    <div><b>Reasoning effort</b><span>Same model, more internal reasoning tokens: better on hard tasks, slower, pricier.</span></div>
+    <div><b>Context engineering</b><span>Instructions + tools + external/past knowledge.</span></div>
+    <div><b>System vs user prompt</b><span>Builder's standing instructions vs the customer's request.</span></div>
+  </div>
+  <div class="demo">
+    <div class="demo-head"><h3>Self-test</h3><span class="score" id="score">0 / 0</span></div>
+    <div class="quiz" id="quiz"></div>
+    <button class="btn" id="qReset" style="align-self:flex-start">Reset quiz</button>
+  </div>
+  <button class="btn done-btn" data-sec="review" aria-pressed="false">Mark as reviewed</button>
+</section>
+
+<!-- ============ LOGISTICS ============ -->
+<section class="part" id="logistics" style="gap:12px">
+  <span class="eyebrow">Course reference</span>
+  <details class="logi">
+    <summary>Syllabus, weekly rhythm and logistics</summary>
+    <div class="in">
+      <div class="scroll-x"><table>
+        <tbody>
+          <tr><td class="mono">Week 1</td><td>Designing and evaluating AI applications</td></tr>
+          <tr><td class="mono">Week 2</td><td>Context engineering: search, retrieval and memory</td></tr>
+          <tr><td class="mono">Week 3</td><td>Deep agents and harness engineering</td></tr>
+          <tr><td class="mono">Week 4</td><td>Fine-tuning, multimodal AI and AI in production</td></tr>
+          <tr><td class="mono">Weeks 5–6</td><td>Capstone project and demos</td></tr>
+        </tbody>
+      </table></div>
+      <p>The goal is a mental model for designing AI systems, not checking off topics.</p>
+      <div class="flow small">
+        <span class="node">Live lectures (2/week)</span><span class="arrow">→</span>
+        <span class="node">Sat: [Build] &amp; [Grow] released</span><span class="arrow">→</span>
+        <span class="node">Practise &amp; note questions</span><span class="arrow">→</span>
+        <span class="node">Tue/Thu office hours</span>
+      </div>
+      <p><b>Weekly priorities</b> (core 5–8 h): 1 lectures and/or office hours · 2 [Build] components · 3 quizzes. Optional (8–15+ h total): 4 guest lectures · 5 Chai &amp; AI · 6 [Grow] material. Recordings are up within 2–3 h, with lifetime access.</p>
+      <p><b>[Build]:</b> LangGraph or LangFlow; budget about <b>$20 of OpenAI API usage</b>.</p>
+      <p><b>Slack</b> (team replies within 24 h): <span class="mono small">#pfai_lecture_questions_october_2026</span> concepts · <span class="mono small">#pfai_homework_questions_october_2026</span> [Build] help · <span class="mono small">#pfai_logistics_questions_october_2026</span> invites, recordings, access. Announcements channel is read-only. No DMs. No Slack access: <span class="mono small">problemfirst.ai@gmail.com</span></p>
+      <p><b>Points</b> (leaderboard on the education portal; weekly leader wins a $100 Amazon gift card): build-in-public post 10 · quiz question 1 each · most valuable takeaway 4 · thoughtful office-hours question 2.</p>
+      <p><b>To do now:</b> finish pre-course material, sign up on Slack, the education portal and Maven, add course events to your calendar.</p>
+    </div>
+  </details>
+</section>
+</main>
+</div>
+
+<script>
+(function(){
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+function press(group,btn){group.forEach(b=>b.setAttribute('aria-pressed',b===btn?'true':'false'))}
+
+/* ---- reviewed progress ---- */
+const SECS=['mindset','nondeterminism','agency','ops','v1','models','prompting','review'];
+let done=store.get('l1-reviewed',[]);
+function renderDone(){
+  $$('.done-btn').forEach(b=>{const on=done.includes(b.dataset.sec);b.setAttribute('aria-pressed',on);b.textContent=on?'✓ Reviewed':'Mark as reviewed'});
+  $$('#toc a').forEach(a=>a.classList.toggle('done',done.includes(a.getAttribute('href').slice(1))));
+  const n=done.filter(s=>SECS.includes(s)).length;
+  $('#progressTxt').textContent=n+' of '+SECS.length+' reviewed';
+  $('#progressBar').style.width=(n/SECS.length*100)+'%';
+}
+$$('.done-btn').forEach(b=>b.addEventListener('click',()=>{const s=b.dataset.sec;done=done.includes(s)?done.filter(x=>x!==s):done.concat(s);store.set('l1-reviewed',done);renderDone()}));
+renderDone();
+
+/* ---- scrollspy ---- */
+if('IntersectionObserver' in window){
+  const links=$$('#toc a');
+  const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(a=>{const on=a.getAttribute('href')==='#'+e.target.id;a.setAttribute('aria-current',on);if(on&&window.innerWidth<=900)a.scrollIntoView({block:'nearest',inline:'nearest'})})}})},{rootMargin:'-30% 0px -60% 0px'});
+  SECS.forEach(id=>{const el=document.getElementById(id);if(el)io.observe(el)});
+}
+
+/* ---- sampler ---- */
+const TOK=[['playful',.45],['friendly',.30],['brown',.15],['all other',.10]];
+const OTHER=['loyal','asleep','barking','hungry','muddy'];
+let T=1, outs=[], tally={};
+function dist(){ if(T<0.05) return TOK.map((t,i)=>i===0?1:0); const w=TOK.map(t=>Math.pow(t[1],1/T)); const s=w.reduce((a,b)=>a+b,0); return w.map(x=>x/s); }
+function drawBars(hit){
+  const d=dist();
+  $('#bars').innerHTML=TOK.map((t,i)=>`<div class="bar${hit===i?' hit':''}"><span>${t[0]}</span><div class="track"><div class="fill" style="width:${(d[i]*100).toFixed(1)}%"></div></div><span class="pct">${Math.round(d[i]*100)}%</span></div>`).join('');
+}
+function sampleOne(){
+  const d=dist(); let r=Math.random(), i=0; for(;i<d.length-1;i++){ if(r<d[i]) break; r-=d[i]; }
+  const word=i===3?OTHER[Math.floor(Math.random()*OTHER.length)]:TOK[i][0];
+  outs.unshift(`The dog is <b>${word}</b>`); outs=outs.slice(0,6);
+  const key=i===3?'other':word; tally[key]=(tally[key]||0)+1; return i;
+}
+function renderOuts(){ $('#outs').innerHTML=outs.map(o=>`<div>${o}</div>`).join(''); const tot=Object.values(tally).reduce((a,b)=>a+b,0); $('#tally').textContent=tot?('Tally over '+tot+' samples · '+Object.entries(tally).map(([k,v])=>k+' '+v).join(' · ')):'Press sample. Same prompt, different answers.'; }
+$('#s1').onclick=()=>{const i=sampleOne();drawBars(i);renderOuts()};
+$('#s10').onclick=()=>{let i;for(let k=0;k<10;k++)i=sampleOne();drawBars(i);renderOuts()};
+$('#sClr').onclick=()=>{outs=[];tally={};drawBars();renderOuts()};
+$('#tempIn').oninput=e=>{T=parseFloat(e.target.value);$('#tempVal').textContent=T.toFixed(1)+(T<0.05?' (greedy)':'');drawBars()};
+drawBars(); renderOuts();
+
+/* ---- 80/20 flip ---- */
+function setMode(ai){
+  $('#pipe').className='pipe '+(ai?'mode-ai':'mode-sw');
+  press([$('#mSw'),$('#mAi')],ai?$('#mAi'):$('#mSw'));
+  $('#splitA').style.flexBasis=ai?'15%':'85%'; $('#splitB').style.flexBasis=ai?'85%':'15%';
+  $('#splitA').textContent=ai?'Build':'Build the first version ≈80–90%';
+  $('#splitB').textContent=ai?'Design evals + run, analyze, fix ≈80–90%':'Evaluate';
+  $('#flipTxt').innerHTML=ai?'<b>AI application:</b> 80–90% of the work is in <b>designing evals</b> and the <b>post-deployment loop</b> (run evals → analyze behaviour → apply fixes), because behaviour is non-deterministic and only shows up under real use.':'<b>Traditional software:</b> 80–90% of the work is <b>setting up the application</b>. Code is deterministic, so once it passes tests it mostly behaves.';
+}
+$('#mSw').onclick=()=>setMode(false); $('#mAi').onclick=()=>setMode(true); setMode(false);
+
+/* ---- hotel agency ---- */
+const H=['Search & filter','Compare rooms','Approve booking','Pay & confirm'];
+const PRE={user:['you','you','you','you'],intent:['ai','ai','you','ai'],full:['ai','ai','ai','ai']};
+let own=PRE.intent.slice();
+function renderHotel(){
+  $('#hsteps').innerHTML=H.map((h,i)=>`<button class="hstep" data-i="${i}" data-o="${own[i]}" aria-label="${h}: ${own[i]==='ai'?'AI system':'You'}. Click to switch."><span class="who">${own[i]==='ai'?'AI system':'You'}</span>${h}</button>`).join('');
+  $$('#hsteps .hstep').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;own[i]=own[i]==='ai'?'you':'ai';renderHotel()});
+  const a=own.filter(o=>o==='ai').length;
+  $('#agencyFill').style.width=(a/4*100)+'%'; $('#agencyL').textContent='Agency '+a+'/4'; $('#agencyR').textContent='Control '+(4-a)+'/4';
+  $$('#hotel [data-preset]').forEach(b=>b.setAttribute('aria-pressed',String(PRE[b.dataset.preset].join()===own.join())));
+  const bub=$('#bubbles');
+  if(own[2]==='you'&&a>0){bub.innerHTML='<span class="ai">AI: "Book Hotel A for $220?"</span><span class="you">You: "Yes, book it."</span>'}else{bub.innerHTML=''}
+  let t;
+  if(a===0) t='<b>User-driven:</b> you do every step. Full control, zero delegation.';
+  else if(a===4) t='<b>Fully autonomous:</b> the AI spends your money without a checkpoint. Only sensible after many calibrated versions show it\'s reliable.';
+  else if(own.join()===PRE.intent.join()) t='<b>Intent-driven (the slide\'s design):</b> you state the goal; the AI does the legwork and pauses for your approval on the high-stakes decision.';
+  else t='A custom mix. Ask per step: how costly is a mistake here, and how reliable has the AI proven at it?';
+  $('#hotelTxt').innerHTML=t;
+}
+$$('#hotel [data-preset]').forEach(b=>b.onclick=()=>{own=PRE[b.dataset.preset].slice();renderHotel()});
+renderHotel();
+
+/* ---- CC/CD ---- */
+const CC={1:['CD · Continuous Development','Scope capability and curate data','Define what this version should do, how much agency it has, and the data that describes expected behaviour.','Router V1: "only pick a queue, never reply", plus 50–60 labelled tickets.'],
+2:['CD · Continuous Development','Set up application','Build the simplest version, log its behaviour, and make it easy for people to take back control.','A single model call with logging; agents can re-route with one click.'],
+3:['CD · Continuous Development','Design evals','Define how you will judge success and test the application against your reference data.','Routing accuracy on the labelled set, with ambiguous cases tracked separately.'],
+4:['CC · Continuous Calibration','Run evals','Evaluate real interactions to understand how the deployed application is performing.','Sample live tickets each week and score the queue chosen.'],
+5:['CC · Continuous Calibration','Analyze behavior and spot error patterns','Review failures and find recurring gaps between expected and actual behaviour.','"Refund" tickets keep landing in Invoices instead of Payments.'],
+6:['CC · Continuous Calibration','Apply fixes','Make targeted changes, re-run evals, and refine the application or the evals based on what you learn.','Add a routing rule + examples for refunds; re-run evals, then redeploy.']};
+function ccShow(s){
+  $$('.node').forEach(n=>n.classList.toggle('on',n.dataset.s==s));
+  const c=CC[s], col=s<=3?'var(--dev)':'var(--post)';
+  $('#ccPanel').innerHTML=`<span class="side" style="color:${col}">Step ${s} · ${c[0]}</span><h3>${c[1]}</h3><p class="small">${c[2]}</p><p class="small muted"><b>e.g.</b> ${c[3]}</p><div class="row"><button class="btn" id="ccPrev">← Prev</button><button class="btn" id="ccNext">Next →</button></div>`;
+  $('#ccPrev').onclick=()=>ccShow(s===1?6:s-1); $('#ccNext').onclick=()=>ccShow(s===6?1:s+1);
+}
+$$('.node').forEach(n=>{n.addEventListener('click',()=>ccShow(+n.dataset.s));n.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();ccShow(+n.dataset.s)}})});
+ccShow(1);
+
+/* ---- versions ---- */
+const V={1:['High control · low agency','V1: Route tickets','People resolve them. The AI only decides which queue.'],2:['Medium control · medium agency','V2: Draft resolutions','People review the draft and act.'],3:['Low control · high agency','V3: Resolve scoped tickets','AI resolves a defined set of tickets and hands exceptions back.']};
+function vShow(v){
+  $$('#vBtns .btn').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v==v)));
+  $$('.vc').forEach(g=>g.classList.toggle('on',g.dataset.v==v));
+  $('#vText').innerHTML=`<span class="pill">${V[v][0]}</span><h3>${V[v][1]}</h3><p class="small">${V[v][2]}</p><p class="small muted">You only move to the next version once CC/CD evals show the current one is reliable.</p>`;
+}
+$$('#vBtns .btn').forEach(b=>b.onclick=()=>vShow(+b.dataset.v));
+$$('.vc').forEach(g=>g.addEventListener('click',()=>vShow(+g.dataset.v)));
+vShow(1);
+
+/* ---- ops issues ---- */
+const ISS=[['Hallucinations','States things that aren\'t true or aren\'t in its context.','Justifies "Payments" by citing a refund that never happened.'],
+['Sycophancy','Agrees with the user to please them, even when they\'re wrong.','Customer insists it\'s a billing bug; the model agrees instead of checking the transaction.'],
+['Bias reinforcement','Reproduces or amplifies skews in data or training.','Tickets written in non-native English get sent to Security review more often.'],
+['Latency','Responses take too long for the experience.','High reasoning effort on a simple invoice request slows every ticket.'],
+['Prompt sensitivity','Small wording changes swing the output.','"Send my bill" and "send my invoice" land in different queues.'],
+['Inconsistent response length','Output length varies run to run.','The "brief reason" is one line sometimes, a paragraph other times.'],
+['Limited explainability','Hard to see why it made a decision.','Nobody can tell why a lockout ticket skipped Login issues.']];
+$('#issues').innerHTML=ISS.map((x,i)=>`<button class="issue" aria-expanded="false" data-i="${i}"><b>${x[0]}</b><span class="what">${x[1]}</span><span class="ex">${x[2]}</span><span class="more">Show example +</span></button>`).join('');
+$$('.issue').forEach(b=>b.onclick=()=>b.setAttribute('aria-expanded',b.getAttribute('aria-expanded')==='true'?'false':'true'));
+
+/* ---- router ---- */
+const CASES={
+ invoice:{ticket:'"Can you send me last month\'s invoice?"',meta:null,hist:null,
+   route:()=>['Invoices','<b>Ticket is enough.</b> The request itself gives enough information to choose the queue.']},
+ payment:{ticket:'"Payment deducted, but no order confirmation."',meta:'Payment: pending · Order: not found',hist:null,
+   route:(m)=>m?['Payments','<b>Ticket needs metadata.</b> The ticket raises the question; transaction data (payment pending, order not found) shows it\'s a payment problem.']:[null,'<b>Ambiguous without metadata.</b> Is this an order issue or a payment issue? The text alone can\'t tell. Turn the metadata on.']},
+ lockout:{ticket:'"I keep getting locked out, even after resetting my password."',meta:'Account active · no failed payments',hist:'2 recent lockouts. Password resets did not help.',
+   route:(m,h)=>h?['Security review','<b>Ticket needs customer history.</b> Routing rule: recurring lockouts go to Security review. History changes how we interpret the same complaint.']:['Login issues','<b>Without history</b> this looks like an ordinary login problem. Turn history on to see the routing change.']}
+};
+let rc='invoice';
+function renderRouter(){
+  const c=CASES[rc], m=$('#rMetaOn').checked, h=$('#rHistOn').checked;
+  $('#rTicket').textContent=c.ticket;
+  $('#rMeta').classList.toggle('na',!c.meta); $('#rHist').classList.toggle('na',!c.hist);
+  $('#rMetaVal').textContent=c.meta||''; $('#rHistVal').textContent=c.hist||'';
+  $('#rMeta').classList.toggle('on',m); $('#rMeta').classList.toggle('off',!m);
+  $('#rHist').classList.toggle('on',h); $('#rHist').classList.toggle('off',!h);
+  const [q,txt]=c.route(m,h);
+  $$('#rQueues .queue').forEach(el=>el.classList.toggle('on',el.dataset.q===q));
+  $('#rVerdict').innerHTML=(q?'→ <b>'+q+'</b>. ':'→ <b>No confident queue.</b> ')+txt;
+}
+$$('#router [data-case]').forEach(b=>b.onclick=()=>{rc=b.dataset.case;press($$('#router [data-case]'),b);$('#rMetaOn').checked=true;$('#rHistOn').checked=true;renderRouter()});
+$('#rMetaOn').onchange=renderRouter; $('#rHistOn').onchange=renderRouter;
+renderRouter();
+
+/* ---- effort ---- */
+const EF={low:[3,35,20,20],medium:[7,65,55,55],high:[11,85,95,95]};
+function effort(e){
+  press($$('#effort [data-e]'),$('#effort [data-e="'+e+'"]'));
+  const v=EF[e]; $('#tokens').innerHTML=Array.from({length:v[0]},(_,i)=>`<i style="animation-delay:${i*30}ms"></i>`).join('');
+  $('#gQ').style.width=v[1]+'%'; $('#gL').style.width=v[2]+'%'; $('#gC').style.width=v[3]+'%';
+}
+$$('#effort [data-e]').forEach(b=>b.onclick=()=>effort(b.dataset.e)); effort('low');
+
+/* ---- lever drill ---- */
+const LV=[['Applies the refund policy but misses the exception for orders over 30 days.','r','Policy exception: it has the pieces but fails to connect the steps.'],
+['Customer-facing replies sound stiff and robotic.','m','Writing style is a learned capability. More thinking time won\'t change the voice.'],
+['Gets a multi-step pro-rated refund calculation wrong.','r','Multi-step math benefits from more reasoning.'],
+['Misreads parts on an uploaded engineering drawing.','m','Visual capability: you need a model that sees better.'],
+['Proposes a delivery plan that breaks one of five scheduling constraints.','r','Planning with constraints is a classic case for more reasoning.'],
+['Doesn\'t recognise insurance-domain terms in claims tickets.','m','Missing domain concepts point to a model with different training.']];
+$('#levers').innerHTML=LV.map((x,i)=>`<div class="lever" data-i="${i}"><span class="small">${x[0]}</span><div class="row"><button class="btn" data-a="r">More reasoning</button><button class="btn" data-a="m">Different model</button></div><span class="fb" aria-live="polite"></span></div>`).join('');
+$$('.lever').forEach(l=>{const x=LV[+l.dataset.i];l.querySelectorAll('button').forEach(b=>b.onclick=()=>{const ok=b.dataset.a===x[1];press(Array.from(l.querySelectorAll('button')),b);const fb=l.querySelector('.fb');fb.className='fb '+(ok?'ok':'no');fb.textContent=(ok?'✓ Right. ':'✗ Not quite. ')+x[2]})});
+
+/* ---- quiz ---- */
+const Q=[
+['In traditional software, 80–90% of the work happens in…',['Designing evals','Setting up the application','Post-deployment analysis'],1,'Software is deterministic; the build is most of the work. In AI apps it flips toward evals and post-deployment.'],
+['Why can the same prompt give different responses?',['The model retrains between calls','Tokens are sampled from a probability distribution','The API is unreliable'],1,'Generation samples one token at a time from next-token probabilities.'],
+['In the CC/CD loop, which steps are Continuous Calibration?',['Scope, set up, design evals','Run evals, analyze behaviour, apply fixes','Deploy only'],1,'CD = steps 1–3 before deploy; CC = steps 4–6 after deploy.'],
+['A good V1 for a support agent has…',['High agency, low control','High control, low agency','No human involvement'],1,'V1 routes tickets while people resolve them. Agency grows with each calibrated version.'],
+['"Payment deducted, but no order confirmation." What extra context routes it well?',['Customer history','Transaction + order status','Nothing, the ticket is enough'],1,'The ticket raises the question; transaction data answers it.'],
+['How many examples should you start your V1 dataset with?',['5–10','50–60 representative ones','5,000+'],1,'50–60 covering clear, ambiguous and exception cases.'],
+['Your model gets policy exceptions wrong but understands the rules. First lever?',['Increase reasoning effort','Switch to a model with better visual skills','Write a longer system prompt about tone'],0,'It has the pieces but struggles to connect steps, so give it more reasoning.'],
+['Which is true about open-weight models?',['You must self-host them','They can be used via a hosted service','They can\'t be fine-tuned'],1,'Open weights don\'t mean you have to host the model yourself.'],
+['Context engineering =',['Prompt + temperature','Instructions + tools + external/past knowledge','Model + GPU + API'],1,'What it should do, what it can use, what it should know.'],
+['The recommended starting point for model choice is…',['The biggest model on max reasoning','A mid-tier model on low reasoning effort','Whatever tops the leaderboard'],1,'Then adjust based on failures in your own tests.']];
+let ans={};
+function renderQuiz(){
+  $('#quiz').innerHTML=Q.map((q,i)=>`<div class="qq" data-i="${i}"><p class="qt">${i+1}. ${q[0]}</p><div class="opts">${q[1].map((o,j)=>`<button class="opt" data-j="${j}">${o}</button>`).join('')}</div><p class="qexp" hidden></p></div>`).join('');
+  $$('.qq').forEach(el=>{const i=+el.dataset.i;el.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{if(i in ans)return;const j=+b.dataset.j;ans[i]=j;const q=Q[i];el.querySelectorAll('.opt').forEach(x=>{const k=+x.dataset.j;if(k===q[2])x.classList.add('right');else if(k===j)x.classList.add('wrong')});const e=el.querySelector('.qexp');e.hidden=false;e.textContent=(j===q[2]?'✓ ':'✗ ')+q[3];score()})});
+  score();
+}
+function score(){const n=Object.keys(ans).length,c=Object.entries(ans).filter(([i,j])=>Q[i][2]===j).length;$('#score').textContent=c+' / '+n+(n===Q.length?' · done':'')}
+$('#qReset').onclick=()=>{ans={};renderQuiz()};
+renderQuiz();
+})();
+</script>
+
+</body></html>
